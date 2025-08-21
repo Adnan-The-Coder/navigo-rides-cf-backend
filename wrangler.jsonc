@@ -13,7 +13,43 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"d1_databases": [  // Optional: keep dev config here
+    {
+      "binding": "DB",
+      "database_name": "navigo-main-db",
+      "database_id": "2517ea88-d3a9-4dd6-b18d-ab8f078148f5",
+      "migrations_dir": "./drizzle"
+    }
+  ],
+  "env": {
+    "production": {
+      "vars": {
+        "ENVIRONMENT": "production"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "navigo-main-db",
+          "database_id": "2517ea88-d3a9-4dd6-b18d-ab8f078148f5",
+          "migrations_dir": "./drizzle"
+        }
+      ]
+    },
+    "staging": {
+      "vars": {
+        "ENVIRONMENT": "staging"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "navigo-main-db",
+          "database_id": "2517ea88-d3a9-4dd6-b18d-ab8f078148f5",
+          "migrations_dir": "./drizzle"
+        }
+      ]
+    }
+  }
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

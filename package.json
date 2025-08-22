@@ -12,13 +12,14 @@
 		"migrate": "node scripts/execute-d1.mjs"
 	},
 	"dependencies": {
-		"hono": "^4.9.2",
 		"dotenv": "^17.2.0",
 		"drizzle-kit": "^0.31.4",
-		"drizzle-orm": "^0.44.2"
+		"drizzle-orm": "^0.44.2",
+		"hono": "^4.9.2",
+		"uuid": "^11.1.0"
 	},
 	"devDependencies": {
-		"wrangler": "^4.32.0",
-		"@types/node": "^24.0.13"
+		"@types/node": "^24.0.13",
+		"wrangler": "^4.32.0"
 	}
 }

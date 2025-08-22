@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { requestId } from "hono/request-id";
 import driverRoutes from "./routes/driver";
+import userRoutes from "./routes/user";
 
 interface CloudflareBindings {
   ENVIRONMENT?: string;
@@ -120,5 +121,6 @@ app.get("/health", (c) => {
 
 
 app.route('/driver',driverRoutes);
+app.route('/user',userRoutes);
 
 export default app;

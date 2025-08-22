@@ -27,14 +27,14 @@
       "vars": {
         "ENVIRONMENT": "production"
       },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "navigo-main-db",
-          "database_id": "2517ea88-d3a9-4dd6-b18d-ab8f078148f5",
-          "migrations_dir": "./drizzle"
-        }
-      ]
+    //   "d1_databases": [
+    //     {
+    //       "binding": "DB",
+    //       "database_name": "navigo-main-db",
+    //       "database_id": "2517ea88-d3a9-4dd6-b18d-ab8f078148f5",
+    //       "migrations_dir": "./drizzle"
+    //     }
+    //   ]
     },
     "staging": {
       "vars": {

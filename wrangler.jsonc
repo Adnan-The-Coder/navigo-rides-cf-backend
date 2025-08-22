@@ -4,7 +4,7 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cf-d1-hono-backend",
+	"name": "backend-cf-navigorides",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-08-21",
 	"assets": {

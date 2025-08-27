@@ -18,11 +18,11 @@ jobs:
           node-version: '22.16.0'
           cache: 'pnpm'
 
-      - name: Install pnpm globally
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-          pnpm --version  # confirm installation
+      - name: Install pnpm via npm
+        run: npm install -g pnpm
+
+      - name: Confirm pnpm version
+        run: pnpm --version
 
       - name: Install dependencies
         run: pnpm install

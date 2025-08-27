@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - master
   pull_request:
     branches:
       - main
+      - master
 
 jobs:
   deploy:
@@ -20,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '18'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -44,14 +46,59 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Generate Drizzle migrations (if needed)
+      - name: Generate Drizzle migrations
         run: pnpm run generate
-        continue-on-error: true
+
+      - name: Run database migrations
+        run: |
+          # Create a non-interactive migration script for CI
+          cat > scripts/ci-migrate.mjs << 'EOF'
+          import { readdir } from 'fs/promises';
+          import { exec } from 'child_process';
+          import { promisify } from 'util';
+
+          const execAsync = promisify(exec);
+          const MIGRATION_DIR = './drizzle';
+          const DB_NAME = 'navigo-main-db';
+
+          try {
+            const files = (await readdir(MIGRATION_DIR)).filter(f => f.endsWith('.sql'));
+            
+            if (!files.length) {
+              console.log('ℹ️ No SQL migration files found. Skipping migrations.');
+              process.exit(0);
+            }
+
+            // Sort files to get the latest migration
+            files.sort();
+            const latestMigration = files[files.length - 1];
+            
+            console.log(`🚀 Running latest migration: ${latestMigration}`);
+            
+            const cmd = `wrangler d1 execute ${DB_NAME} --remote --file="${MIGRATION_DIR}/${latestMigration}"`;
+            console.log(`Executing: ${cmd}`);
+            
+            const { stdout, stderr } = await execAsync(cmd);
+            
+            if (stdout) console.log(stdout);
+            if (stderr) console.error(stderr);
+            
+            console.log('✅ Migration completed successfully.');
+          } catch (error) {
+            console.error('❌ Migration failed:', error.message);
+            process.exit(1);
+          }
+          EOF
+          
+          node scripts/ci-migrate.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy src/index.ts --minify
+          command: deploy src/index.ts --minify --env=""
           wranglerVersion: "4.32.0"

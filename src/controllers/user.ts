@@ -3,23 +3,9 @@ import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
 import { users, drivers } from '../db/schema';
 import { v4 as uuidv4 } from 'uuid';
+import { CreateUserRequest } from '../types/user';
+import { validateEmail, validatePhone, validateDateFormat, isValidAge, validateImageUrl } from '../helpers/validation';
 
-// Type definitions
-interface CreateUserRequest {
-  email: string;
-  phoneNumber: string;
-  firstName: string;
-  lastName: string;
-  profileImage?: string;
-  dateOfBirth?: string;
-  gender?: "male" | "female" | "other";
-  userType?: "customer" | "driver" | "parent" | "student" | "guardian";
-}
-
-interface UpdateUserRequest extends Partial<CreateUserRequest> {
-  isActive?: boolean;
-  isVerified?: boolean;
-}
 
 interface GetUsersQuery {
   page?: string;
@@ -35,50 +21,9 @@ interface GetUsersQuery {
   createdBefore?: string;
 }
 
-// Validation helpers
-const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email.toLowerCase());
-};
-
-const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[6-9]\d{9}$/; // Indian mobile number format
-  return phoneRegex.test(phone);
-};
-
 const validateName = (name: string): boolean => {
   const nameRegex = /^[a-zA-Z\s]{2,50}$/;
   return nameRegex.test(name.trim());
-};
-
-const validateDateFormat = (date: string): boolean => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(date)) return false;
-  
-  const dateObj = new Date(date);
-  return dateObj instanceof Date && !isNaN(dateObj.getTime());
-};
-
-const isValidAge = (dateOfBirth: string): boolean => {
-  const birthDate = new Date(dateOfBirth);
-  const today = new Date();
-  const age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    return age - 1 >= 13; // Minimum age 13
-  }
-  
-  return age >= 13 && age <= 120; // Age between 13 and 120
-};
-
-const validateImageUrl = (url: string): boolean => {
-  try {
-    const urlObj = new URL(url);
-    return ['http:', 'https:'].includes(urlObj.protocol);
-  } catch {
-    return false;
-  }
 };
 
 const sanitizeInput = (input: string): string => {

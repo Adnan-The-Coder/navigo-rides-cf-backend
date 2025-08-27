@@ -2,35 +2,9 @@ import { Context } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, or, like, desc, asc, sql } from 'drizzle-orm';
 import { drivers, users } from '../db/schema';
+import { CreateDriverRequest, UpdateDriverRequest } from '../types/driver';
+import { validateAadhar, validateDateFormat, validateIFSC, validateLicenseNumber, validatePAN, validatePhone, validateUPI } from '../helpers/validation';
 
-// Type definitions
-interface CreateDriverRequest {
-  userId: number;
-  licenseNumber: string;
-  licenseExpiryDate: string;
-  licenseImageUrl: string;
-  aadharNumber: string;
-  aadharImageUrl: string;
-  panNumber?: string;
-  panImageUrl?: string;
-  policeVerificationCertUrl?: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
-  bankAccountNumber?: string;
-  bankIfscCode?: string;
-  bankAccountHolderName?: string;
-  upiId?: string;
-}
-
-interface UpdateDriverRequest extends Partial<CreateDriverRequest> {
-  backgroundCheckStatus?: "pending" | "in_progress" | "approved" | "rejected";
-  status?: "pending" | "under_review" | "approved" | "rejected" | "suspended" | "inactive";
-  rejectionReason?: string;
-  rating?: number;
-  totalRides?: number;
-  totalEarnings?: number;
-  isOnline?: boolean;
-}
 
 interface GetDriversQuery {
   page?: string;
@@ -42,50 +16,6 @@ interface GetDriversQuery {
   sortOrder?: 'asc' | 'desc';
   isOnline?: string;
 }
-
-// Validation helpers
-const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^[6-9]\d{9}$/; // Indian mobile number format
-  return phoneRegex.test(phone);
-};
-
-const validatePAN = (pan: string): boolean => {
-  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
-  return panRegex.test(pan);
-};
-
-const validateAadhar = (aadhar: string): boolean => {
-  const aadharRegex = /^\d{12}$/;
-  return aadharRegex.test(aadhar);
-};
-
-const validateLicenseNumber = (license: string): boolean => {
-  // Basic validation - adjust according to your license format
-  return license.length >= 10 && license.length <= 20;
-};
-
-const validateIFSC = (ifsc: string): boolean => {
-  const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-  return ifscRegex.test(ifsc);
-};
-
-const validateUPI = (upi: string): boolean => {
-  const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z]{2,64}$/;
-  return upiRegex.test(upi);
-};
-
-const validateDateFormat = (date: string): boolean => {
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(date)) return false;
-  
-  const dateObj = new Date(date);
-  return dateObj instanceof Date && !isNaN(dateObj.getTime());
-};
 
 const isDateInFuture = (date: string): boolean => {
   const inputDate = new Date(date);
@@ -102,7 +32,7 @@ export const createDriver = async (c: Context) => {
 
     // Required field validation
     const requiredFields = [
-      'userId', 'licenseNumber', 'licenseExpiryDate', 'licenseImageUrl',
+      'user_uuid', 'licenseNumber', 'licenseExpiryDate', 'licenseImageUrl',
       'aadharNumber', 'aadharImageUrl', 'emergencyContactName', 'emergencyContactPhone'
     ];
 
@@ -177,7 +107,7 @@ export const createDriver = async (c: Context) => {
     const userExists = await db
       .select()
       .from(users)
-      .where(eq(users.id, body.userId))
+      .where(eq(users.uuid, body.user_uuid))
       .limit(1);
 
     if (userExists.length === 0) {
@@ -191,7 +121,7 @@ export const createDriver = async (c: Context) => {
     const existingDriver = await db
       .select()
       .from(drivers)
-      .where(eq(drivers.userId, body.userId))
+      .where(eq(drivers.user_uuid, body.user_uuid))
       .limit(1);
 
     if (existingDriver.length > 0) {

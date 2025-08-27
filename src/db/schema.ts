@@ -59,7 +59,7 @@ export const schools = sqliteTable("schools", {
 
 export const drivers = sqliteTable("drivers", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_uuid: text("user_uuid").notNull().references(() => users.uuid, { onDelete: "cascade" }),
   licenseNumber: text("license_number").notNull().unique(),
   licenseExpiryDate: text("license_expiry_date").notNull(),
   licenseImageUrl: text("license_image_url").notNull(),

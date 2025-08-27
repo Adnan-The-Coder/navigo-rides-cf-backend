@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-      - master
   pull_request:
     branches:
       - main
-      - master
 
 jobs:
   deploy:
@@ -51,7 +49,7 @@ jobs:
 
       - name: Run database migrations
         run: |
-          # Create a non-interactive migration script for CI
+          # Create a robust migration script with retry logic for CI
           cat > scripts/ci-migrate.mjs << 'EOF'
           import { readdir } from 'fs/promises';
           import { exec } from 'child_process';
@@ -60,6 +58,39 @@ jobs:
           const execAsync = promisify(exec);
           const MIGRATION_DIR = './drizzle';
           const DB_NAME = 'navigo-main-db';
+          const MAX_RETRIES = 5;
+          const INITIAL_DELAY = 2000; // 2 seconds
+
+          const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+          async function runMigrationWithRetry(cmd, retries = 0) {
+            try {
+              console.log(`\nAttempt ${retries + 1}/${MAX_RETRIES}: ${cmd}`);
+              
+              const { stdout, stderr } = await execAsync(cmd, { 
+                timeout: 120000 // 2 minute timeout
+              });
+              
+              if (stdout) console.log(stdout);
+              if (stderr && !stderr.includes('WARNING')) {
+                throw new Error(stderr);
+              }
+              
+              console.log('✅ Migration completed successfully.');
+              return true;
+            } catch (error) {
+              console.log(`❌ Attempt ${retries + 1} failed:`, error.message);
+              
+              if (retries < MAX_RETRIES - 1) {
+                const delay = INITIAL_DELAY * Math.pow(2, retries); // Exponential backoff
+                console.log(`⏳ Retrying in ${delay/1000} seconds...`);
+                await sleep(delay);
+                return runMigrationWithRetry(cmd, retries + 1);
+              } else {
+                throw new Error(`Migration failed after ${MAX_RETRIES} attempts: ${error.message}`);
+              }
+            }
+          }
 
           try {
             const files = (await readdir(MIGRATION_DIR)).filter(f => f.endsWith('.sql'));
@@ -76,16 +107,11 @@ jobs:
             console.log(`🚀 Running latest migration: ${latestMigration}`);
             
             const cmd = `pnpm exec wrangler d1 execute ${DB_NAME} --remote --file="${MIGRATION_DIR}/${latestMigration}"`;
-            console.log(`Executing: ${cmd}`);
             
-            const { stdout, stderr } = await execAsync(cmd);
+            await runMigrationWithRetry(cmd);
             
-            if (stdout) console.log(stdout);
-            if (stderr) console.error(stderr);
-            
-            console.log('✅ Migration completed successfully.');
           } catch (error) {
-            console.error('❌ Migration failed:', error.message);
+            console.error('❌ Migration process failed:', error.message);
             process.exit(1);
           }
           EOF

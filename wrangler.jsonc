@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "navigo-main-db",
-      "database_id": "b3368bc7-1b8a-42f9-a7aa-3e3a927023a8",
+      "database_id": "de7edeba-8fb2-48d7-9303-eede8c115fe1",
       "migrations_dir": "./drizzle"
     }
   ],
@@ -31,7 +31,7 @@
         {
           "binding": "DB",
           "database_name": "navigo-main-db",
-          "database_id": "b3368bc7-1b8a-42f9-a7aa-3e3a927023a8",
+          "database_id": "de7edeba-8fb2-48d7-9303-eede8c115fe1",
           "migrations_dir": "./drizzle"
         }
       ]
@@ -44,7 +44,7 @@
         {
           "binding": "DB",
           "database_name": "navigo-main-db",
-          "database_id": "b3368bc7-1b8a-42f9-a7aa-3e3a927023a8",
+          "database_id": "de7edeba-8fb2-48d7-9303-eede8c115fe1",
           "migrations_dir": "./drizzle"
         }
       ]

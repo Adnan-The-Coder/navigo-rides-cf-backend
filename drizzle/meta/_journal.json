@@ -1,13 +1,1 @@
-{
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1755831453966,
-      "tag": "0000_wandering_dreaming_celestial",
-      "breakpoints": true
-    }
-  ]
-}
+{"version":"7","dialect":"sqlite","entries":[]}

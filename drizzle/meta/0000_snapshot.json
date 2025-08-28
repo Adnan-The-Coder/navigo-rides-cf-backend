@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2500f376-e34c-4ef6-9ded-49bf0417951e",
+  "id": "78300373-0dfc-4d3d-8569-874e1a3d3e19",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "drivers": {
@@ -14,9 +14,9 @@
           "notNull": true,
           "autoincrement": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "integer",
+        "user_uuid": {
+          "name": "user_uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -257,15 +257,15 @@
         }
       },
       "foreignKeys": {
-        "drivers_user_id_users_id_fk": {
-          "name": "drivers_user_id_users_id_fk",
+        "drivers_user_uuid_users_uuid_fk": {
+          "name": "drivers_user_uuid_users_uuid_fk",
           "tableFrom": "drivers",
           "tableTo": "users",
           "columnsFrom": [
-            "user_id"
+            "user_uuid"
           ],
           "columnsTo": [
-            "id"
+            "uuid"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -551,7 +551,7 @@
           "name": "uuid",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "created_at": {
@@ -583,6 +583,13 @@
           "name": "users_phone_number_unique",
           "columns": [
             "phone_number"
+          ],
+          "isUnique": true
+        },
+        "users_uuid_unique": {
+          "name": "users_uuid_unique",
+          "columns": [
+            "uuid"
           ],
           "isUnique": true
         },

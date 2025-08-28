@@ -1,6 +1,6 @@
 CREATE TABLE `drivers` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`user_id` integer NOT NULL,
+	`user_uuid` text NOT NULL,
 	`license_number` text NOT NULL,
 	`license_expiry_date` text NOT NULL,
 	`license_image_url` text NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE `drivers` (
 	`last_online_at` text,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`user_uuid`) REFERENCES `users`(`uuid`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `drivers_license_number_unique` ON `drivers` (`license_number`);--> statement-breakpoint
@@ -76,13 +76,14 @@ CREATE TABLE `users` (
 	`user_type` text DEFAULT 'customer' NOT NULL,
 	`is_active` integer DEFAULT true NOT NULL,
 	`is_verified` integer DEFAULT false NOT NULL,
-	`uuid` text,
+	`uuid` text NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
 CREATE UNIQUE INDEX `users_phone_number_unique` ON `users` (`phone_number`);--> statement-breakpoint
+CREATE UNIQUE INDEX `users_uuid_unique` ON `users` (`uuid`);--> statement-breakpoint
 CREATE INDEX `users_phone_idx` ON `users` (`phone_number`);--> statement-breakpoint
 CREATE INDEX `users_email_idx` ON `users` (`email`);--> statement-breakpoint
 CREATE INDEX `users_user_type_idx` ON `users` (`user_type`);--> statement-breakpoint

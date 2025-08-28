@@ -16,7 +16,7 @@ export const users = sqliteTable("users", {
   }).notNull().default("customer"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   isVerified: integer("is_verified", { mode: "boolean" }).notNull().default(false),
-  uuid: text("uuid"), // Unique identifier for user services
+  uuid: text("uuid").notNull().unique(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({

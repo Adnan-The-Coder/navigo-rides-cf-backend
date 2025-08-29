@@ -5,6 +5,7 @@ import { requestId } from "hono/request-id";
 import driverRoutes from "./routes/driver";
 import userRoutes from "./routes/user";
 import schoolRoutes from "./routes/school";
+import vehicleRoutes from "./routes/vehicle";
 
 interface CloudflareBindings {
   ENVIRONMENT?: string;
@@ -124,5 +125,6 @@ app.get("/health", (c) => {
 app.route('/driver',driverRoutes);
 app.route('/user',userRoutes);
 app.route('/school',schoolRoutes);
+app.route('/vehicle',vehicleRoutes);
 
 export default app;

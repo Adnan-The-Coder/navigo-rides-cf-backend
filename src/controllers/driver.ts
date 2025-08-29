@@ -136,7 +136,6 @@ const getSortOrder = (sortBy: string = 'createdAt', sortOrder: string = 'desc') 
   return sortOrder === 'asc' ? asc(column) : desc(column);
 };
 
-
 // Create Driver
 export const createDriver = async (c: Context) => {
   try {
@@ -711,3 +710,34 @@ export const updateDriver = async (c: Context) => {
   }
 };
 
+// GET Driver by user uuid
+export const getDriverByUUID = async (c:Context) => {
+  try{
+    const db = drizzle(c.env.DB);
+    const userUUID = c.req.param('uuid');
+    if(!userUUID){
+      return c.json({
+        success: false,
+        message: 'User UUID is required'
+      }, 400);
+    }
+    const driver = await db.select().from(drivers).where(eq(drivers.user_uuid, userUUID)).limit(1);
+    if(driver.length === 0){
+      return c.json({
+        success: false,
+        message: 'Driver not found'
+      }, 404);
+    }
+    return c.json({
+      success: true,
+      message: 'Driver retrieved successfully',
+      data: driver[0]
+    });
+  } catch (error) {
+    console.error('Get driver by UUID error:', error);
+    return c.json({
+      success: false,
+      message: 'Internal server error. Please try again later.'
+    }, 500);
+  }
+}

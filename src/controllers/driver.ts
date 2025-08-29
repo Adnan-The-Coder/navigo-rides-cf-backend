@@ -741,3 +741,72 @@ export const getDriverByUUID = async (c:Context) => {
     }, 500);
   }
 }
+
+export const deleteDriver = async (c: Context) => {
+  try {
+    const db = drizzle(c.env.DB);
+    const userUUID = c.req.param('uuid');
+    const mode = c.req.param('mode')?.toLowerCase(); // "soft" or "hard"
+
+    if (!userUUID) {
+      return c.json({
+        success: false,
+        message: 'User UUID is required'
+      }, 400);
+    }
+
+    if (!mode || !['soft', 'hard'].includes(mode)) {
+      return c.json({
+        success: false,
+        message: 'Invalid delete mode. Must be "soft" or "hard".'
+      }, 400);
+    }
+
+    // Check if driver exists
+    const existingDriver = await db
+      .select()
+      .from(drivers)
+      .where(eq(drivers.user_uuid, userUUID))
+      .limit(1);
+
+    if (existingDriver.length === 0) {
+      return c.json({
+        success: false,
+        message: 'Driver not found'
+      }, 404);
+    }
+
+    if (mode === 'soft') {
+      // Soft delete - update status to 'inactive'
+      await db
+        .update(drivers)
+        .set({
+          status: 'inactive',
+          updatedAt: new Date().toISOString()
+        })
+        .where(eq(drivers.user_uuid, userUUID));
+
+      return c.json({
+        success: true,
+        message: 'Driver soft-deleted (status set to inactive)'
+      });
+    }
+
+    // Hard delete
+    await db
+      .delete(drivers)
+      .where(eq(drivers.user_uuid, userUUID));
+
+    return c.json({
+      success: true,
+      message: 'Driver permanently deleted'
+    });
+
+  } catch (error) {
+    console.error('Delete driver error:', error);
+    return c.json({
+      success: false,
+      message: 'Internal server error. Please try again later.'
+    }, 500);
+  }
+};

@@ -131,13 +131,17 @@ export const vehicles = sqliteTable("vehicles", {
 export const rides = sqliteTable("rides", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   rideNumber: text("ride_number").notNull().unique(),
-  customerId: integer("customer_id").notNull().references(() => users.id),
+  bookedByUserId: integer("booked_by_user_id").notNull().references(() => users.id), // Who booked the ride
+  familyId: integer("family_id").references(() => families.id), // null for non-family rides
   driverId: integer("driver_id").notNull().references(() => drivers.id),
   vehicleId: integer("vehicle_id").notNull().references(() => vehicles.id),
   contractId: integer("contract_id").references(() => contracts.id), // null for on-demand rides
   rideType: text("ride_type", {
-    enum: ["on_demand", "scheduled", "contract"]
+    enum: ["on_demand", "scheduled", "contract", "family_plan"]
   }).notNull(),
+  ridePurpose: text("ride_purpose", {
+    enum: ["school_pickup", "school_drop", "medical", "recreational", "emergency", "general"]
+  }).default("general"),
   pickupAddress: text("pickup_address").notNull(),
   pickupLatitude: real("pickup_latitude").notNull(),
   pickupLongitude: real("pickup_longitude").notNull(),
@@ -150,6 +154,10 @@ export const rides = sqliteTable("rides", {
   actualDuration: integer("actual_duration"),
   estimatedFare: real("estimated_fare"),
   actualFare: real("actual_fare"),
+  passengerCount: integer("passenger_count").notNull().default(1),
+  childPassengerCount: integer("child_passenger_count").notNull().default(0),
+  specialInstructions: text("special_instructions"),
+  requiresChildSeat: integer("requires_child_seat", { mode: "boolean" }).notNull().default(false),
   requestedAt: text("requested_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   acceptedAt: text("accepted_at"),
   arrivedAt: text("arrived_at"),
@@ -157,7 +165,7 @@ export const rides = sqliteTable("rides", {
   completedAt: text("completed_at"),
   cancelledAt: text("cancelled_at"),
   cancellationReason: text("cancellation_reason"),
-  cancelledBy: text("cancelled_by", { enum: ["customer", "driver", "system"] }),
+  cancelledBy: text("cancelled_by", { enum: ["customer", "driver", "system", "guardian"] }),
   status: text("status", {
     enum: ["requested", "accepted", "arrived", "started", "completed", "cancelled"]
   }).notNull().default("requested"),
@@ -170,11 +178,13 @@ export const rides = sqliteTable("rides", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   rideNumberIdx: index("rides_ride_number_idx").on(table.rideNumber),
-  customerIdx: index("rides_customer_idx").on(table.customerId),
+  bookedByIdx: index("rides_booked_by_idx").on(table.bookedByUserId),
+  familyIdx: index("rides_family_idx").on(table.familyId),
   driverIdx: index("rides_driver_idx").on(table.driverId),
   statusIdx: index("rides_status_idx").on(table.status),
   dateIdx: index("rides_date_idx").on(table.requestedAt),
   contractIdx: index("rides_contract_idx").on(table.contractId),
+  purposeIdx: index("rides_purpose_idx").on(table.ridePurpose),
 }));
 
 // Service Plans & Pricing
@@ -220,12 +230,16 @@ export const driverServicePlans = sqliteTable("driver_service_plans", {
 export const contracts = sqliteTable("contracts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   contractNumber: text("contract_number").notNull().unique(),
-  customerId: integer("customer_id").notNull().references(() => users.uuid),
+  familyId: integer("family_id").references(() => families.id), // For family contracts
+  primaryUserId: integer("primary_user_id").notNull().references(() => users.id), // Contract holder
   driverId: integer("driver_id").notNull().references(() => drivers.id),
   servicePlanId: integer("service_plan_id").notNull().references(() => servicePlans.id),
   driverServicePlanId: integer("driver_service_plan_id")
     .notNull()
     .references(() => driverServicePlans.id),
+  contractType: text("contract_type", {
+    enum: ["individual", "family", "school_transport"]
+  }).notNull().default("individual"),
   startDate: text("start_date").notNull(),
   endDate: text("end_date").notNull(),
   totalAmount: real("total_amount").notNull(),
@@ -242,7 +256,10 @@ export const contracts = sqliteTable("contracts", {
   }).notNull().default("daily"),
   scheduleDays: text("schedule_days"), // JSON array for days of week
   scheduleTime: text("schedule_time"),
+  maxPassengers: integer("max_passengers").notNull().default(1),
+  allowedFamilyMembers: text("allowed_family_members"), // JSON array of family member IDs
   specialInstructions: text("special_instructions"),
+  childSafetyRequirements: text("child_safety_requirements"), // JSON array of safety requirements
   status: text("status", {
     enum: ["draft", "pending", "active", "completed", "cancelled", "expired"]
   }).notNull().default("pending"),
@@ -253,10 +270,12 @@ export const contracts = sqliteTable("contracts", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
   contractNumberIdx: index("contracts_contract_number_idx").on(table.contractNumber),
-  customerIdx: index("contracts_customer_idx").on(table.customerId),
+  familyIdx: index("contracts_family_idx").on(table.familyId),
+  primaryUserIdx: index("contracts_primary_user_idx").on(table.primaryUserId),
   driverIdx: index("contracts_driver_idx").on(table.driverId),
   statusIdx: index("contracts_status_idx").on(table.status),
   dateIdx: index("contracts_date_idx").on(table.startDate, table.endDate),
+  typeIdx: index("contracts_type_idx").on(table.contractType),
 }));
 
 export const rideTracking = sqliteTable("ride_tracking", {
@@ -290,4 +309,206 @@ export const reviews = sqliteTable("reviews", {
   rideIdx: index("reviews_ride_idx").on(table.rideId),
   reviewerIdx: index("reviews_reviewer_idx").on(table.reviewerId),
   revieweeIdx: index("reviews_reviewee_idx").on(table.revieweeId),
+}));
+
+// Family Management
+export const families = sqliteTable("families", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  familyCode: text("family_code").notNull().unique(), // Unique identifier for family sharing
+  familyName: text("family_name").notNull(),
+  primaryUserId: integer("primary_user_id").notNull().references(() => users.id),
+  address: text("address"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  emergencyContactRelation: text("emergency_contact_relation"),
+  specialInstructions: text("special_instructions"), // Special instructions for all family rides
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  familyCodeIdx: index("families_family_code_idx").on(table.familyCode),
+  primaryUserIdx: index("families_primary_user_idx").on(table.primaryUserId),
+  cityIdx: index("families_city_idx").on(table.city),
+}));
+
+
+export const familyMembers = sqliteTable("family_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  familyId: integer("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  userUUID: text("user_uuid").references(() => users.uuid), // null for non-registered family members
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  dateOfBirth: text("date_of_birth"),
+  gender: text("gender", { enum: ["male", "female", "other"] }),
+  relationshipToPrimary: text("relationship_to_primary", {
+    enum: ["self", "spouse", "child", "parent", "sibling", "grandparent", "grandchild", "other"]
+  }).notNull(),
+  memberType: text("member_type", {
+    enum: ["adult", "student", "child", "elderly"]
+  }).notNull(),
+  schoolId: integer("school_id").references(() => schools.id), // For students
+  grade: text("grade"), // For students
+  section: text("section"), // For students
+  rollNumber: text("roll_number"), // For students
+  profileImage: text("profile_image"),
+  phoneNumber: text("phone_number"), // For older children/teens
+  emailAddress: text("email_address"), // For older children/teens
+  medicalInfo: text("medical_info"), // Any medical conditions or allergies
+  specialNeeds: text("special_needs"), // Special assistance required
+  canTravelAlone: integer("can_travel_alone", { mode: "boolean" }).notNull().default(false),
+  requiresAdultSupervision: integer("requires_adult_supervision", { mode: "boolean" }).notNull().default(true),
+  authorizedPickupPersons: text("authorized_pickup_persons"), // JSON array of authorized people
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  familyIdx: index("family_members_family_idx").on(table.familyId),
+  userUUIDx: index("family_members_user_idx").on(table.userUUID),
+  memberTypeIdx: index("family_members_member_type_idx").on(table.memberType),
+  schoolIdx: index("family_members_school_idx").on(table.schoolId),
+  uniqueFamilyUser: unique("unique_family_user").on(table.familyId, table.userUUID),
+}));
+
+
+// Family Invitation System
+export const familyInvitations = sqliteTable("family_invitations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  familyId: integer("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  invitedByUserUUID: text("invited_by_user_id").notNull().references(() => users.uuid),
+  inviteeEmail: text("invitee_email"),
+  inviteePhone: text("invitee_phone"),
+  inviteeName: text("invitee_name").notNull(),
+  relationshipToPrimary: text("relationship_to_primary").notNull(),
+  memberType: text("member_type", {
+    enum: ["adult", "student", "child", "elderly"]
+  }).notNull(),
+  invitationCode: text("invitation_code").notNull().unique(),
+  permissions: text("permissions"), // JSON object with permission settings
+  status: text("status", {
+    enum: ["pending", "accepted", "declined", "expired", "cancelled"]
+  }).notNull().default("pending"),
+  expiresAt: text("expires_at").notNull(),
+  acceptedAt: text("accepted_at"),
+  acceptedByUserUUID: text("accepted_by_user_uuid").references(() => users.uuid),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  familyIdx: index("family_invitations_family_idx").on(table.familyId),
+  codeIdx: index("family_invitations_code_idx").on(table.invitationCode),
+  statusIdx: index("family_invitations_status_idx").on(table.status),
+  expiryIdx: index("family_invitations_expiry_idx").on(table.expiresAt),
+}));
+
+// Family Subscriptions - Track active plans for families
+export const familySubscriptions = sqliteTable("family_subscriptions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  familyId: integer("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  servicePlanId: integer("service_plan_id").notNull().references(() => servicePlans.id),
+  subscribedByUserId: integer("subscribed_by_user_id").notNull().references(() => users.id),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  totalAmount: real("total_amount").notNull(),
+  discountAmount: real("discount_amount").default(0),
+  usedRides: integer("used_rides").notNull().default(0),
+  remainingRides: integer("remaining_rides"),
+  usedDistance: real("used_distance").notNull().default(0),
+  remainingDistance: real("remaining_distance"),
+  autoRenewal: integer("auto_renewal", { mode: "boolean" }).notNull().default(false),
+  status: text("status", {
+    enum: ["active", "expired", "cancelled", "suspended"]
+  }).notNull().default("active"),
+  paymentStatus: text("payment_status", {
+    enum: ["pending", "paid", "failed", "refunded"]
+  }).notNull().default("pending"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  familyIdx: index("family_subscriptions_family_idx").on(table.familyId),
+  planIdx: index("family_subscriptions_plan_idx").on(table.servicePlanId),
+  statusIdx: index("family_subscriptions_status_idx").on(table.status),
+  dateIdx: index("family_subscriptions_date_idx").on(table.startDate, table.endDate),
+}));
+
+
+export const notifications = sqliteTable("notifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  familyId: integer("family_id").references(() => families.id),
+  rideId: integer("ride_id").references(() => rides.id),
+  notificationType: text("notification_type", {
+    enum: [
+      "ride_booked", "ride_started", "ride_completed", "ride_cancelled",
+      "driver_arrived", "pickup_completed", "family_member_added",
+      "guardian_authorized", "payment_due", "subscription_expiring",
+      "emergency_alert", "safety_concern"
+    ]
+  }).notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  priority: text("priority", {
+    enum: ["low", "medium", "high", "urgent"]
+  }).notNull().default("medium"),
+  isRead: integer("is_read", { mode: "boolean" }).notNull().default(false),
+  actionRequired: integer("action_required", { mode: "boolean" }).notNull().default(false),
+  actionUrl: text("action_url"),
+  metadata: text("metadata"), // JSON object with additional data
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  readAt: text("read_at"),
+}, (table) => ({
+  userIdx: index("notifications_user_idx").on(table.userId),
+  familyIdx: index("notifications_family_idx").on(table.familyId),
+  typeIdx: index("notifications_type_idx").on(table.notificationType),
+  priorityIdx: index("notifications_priority_idx").on(table.priority),
+  unreadIdx: index("notifications_unread_idx").on(table.userId, table.isRead),
+}));
+
+
+// Ride Safety Incidents and Reports
+export const safetyIncidents = sqliteTable("safety_incidents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  rideId: integer("ride_id").references(() => rides.id),
+  reportedByUserId: integer("reported_by_user_id").notNull().references(() => users.id),
+  driverId: integer("driver_id").references(() => drivers.id),
+  vehicleId: integer("vehicle_id").references(() => vehicles.id),
+  familyId: integer("family_id").references(() => families.id),
+  incidentType: text("incident_type", {
+    enum: [
+      "unsafe_driving", "inappropriate_behavior", "vehicle_safety_issue",
+      "route_deviation", "unauthorized_stop", "child_safety_concern",
+      "emergency_situation", "accident", "breakdown", "other"
+    ]
+  }).notNull(),
+  severity: text("severity", {
+    enum: ["low", "medium", "high", "critical"]
+  }).notNull(),
+  description: text("description").notNull(),
+  location: text("location"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  evidenceUrls: text("evidence_urls"), // JSON array of photo/video URLs
+  witnessContacts: text("witness_contacts"), // JSON array of witness information
+  status: text("status", {
+    enum: ["reported", "investigating", "resolved", "escalated", "closed"]
+  }).notNull().default("reported"),
+  investigatedByUserId: integer("investigated_by_user_id").references(() => users.id),
+  resolutionNotes: text("resolution_notes"),
+  actionTaken: text("action_taken"),
+  followUpRequired: integer("follow_up_required", { mode: "boolean" }).notNull().default(true),
+  reportedAt: text("reported_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  resolvedAt: text("resolved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+  rideIdx: index("safety_incidents_ride_idx").on(table.rideId),
+  reporterIdx: index("safety_incidents_reporter_idx").on(table.reportedByUserId),
+  driverIdx: index("safety_incidents_driver_idx").on(table.driverId),
+  familyIdx: index("safety_incidents_family_idx").on(table.familyId),
+  statusIdx: index("safety_incidents_status_idx").on(table.status),
+  severityIdx: index("safety_incidents_severity_idx").on(table.severity),
+  typeIdx: index("safety_incidents_type_idx").on(table.incidentType),
 }));
